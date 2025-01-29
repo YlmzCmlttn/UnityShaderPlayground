@@ -2,21 +2,16 @@ Shader "Unlit/Shader1"
 {
     Properties
     {
-        _ColorA ("Color A", Color ) = (1,1,1,1)
-        _ColorB ("Color B", Color ) = (1,1,1,1)
+        _WaveAmp ("Wave Amplitude", Range(0,0.2) ) = 0.1
     }
     SubShader
     {
         Tags { 
-            "RenderType"="Transparent"
-            "Queue"="Transparent"
+            "RenderType"="Opaque" 
            }
 
         Pass
         {
-            Cull Off
-            ZWrite Off
-            Blend One One
 
             CGPROGRAM
             #pragma vertex vert
@@ -24,10 +19,8 @@ Shader "Unlit/Shader1"
 
             #include "UnityCG.cginc"
 
-            float4 _ColorA;
-            float4 _ColorB;
-
-            #define TAU 6.28318530718
+            #define TAU 6.28318530718            
+            float _WaveAmp;
             
             sampler2D _Texture;
             struct MeshData{
@@ -42,9 +35,21 @@ Shader "Unlit/Shader1"
                 float2 uv : TEXCOORD1;
             };
 
+            float GetWave( float2 uv ) {
+                float2 uvsCentered = uv * 2 - 1; 
+                float radialDistance = length( uvsCentered );
+                float wave = cos( (radialDistance - _Time.y * 0.1) * TAU * 5) * 0.5 + 0.5;
+                wave *= 1-radialDistance;
+                return wave;
+            }
+
             Interpolators vert (MeshData v)
             {
                 Interpolators o;
+                v.vertex.y = GetWave( v.uv0 ) * _WaveAmp/100.0;
+
+
+
                 o.vertex = UnityObjectToClipPos(v.vertex);
                 o.normal = UnityObjectToWorldNormal(v.normals);
                 o.uv = v.uv0;
@@ -53,15 +58,7 @@ Shader "Unlit/Shader1"
             }
 
             float4 frag (Interpolators i) : SV_Target{
-                float xOffset = cos( i.uv.x * TAU * 8 ) * 0.01;                
-                float t = cos( (i.uv.y + xOffset - _Time.y * 0.1) * TAU * 5) * 0.5 + 0.5;
-                t *= 1-i.uv.y;
-
-                float topBottomRemover = (abs(i.normal.y) < 0.999);
-                float waves = t * topBottomRemover;
-                float4 gradient = lerp( _ColorA, _ColorB, i.uv.y );
-
-                return gradient * waves;
+                return GetWave( i.uv );
             }
             ENDCG
         }
